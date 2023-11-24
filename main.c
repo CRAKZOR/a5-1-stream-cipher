@@ -1,35 +1,134 @@
 #include <stdio.h>
+#include <stdlib.h>
 
 typedef enum bit {
-    zero,
-    one
+    zero = 0,
+    one  = 1
 } bit;
 
 typedef struct A51 {
-    bit x[19];
-    bit y[22];
-    bit z[23];
+    bit  x[19];
+    bit  y[22];
+    bit  z[23];
 } A51;
 
 
-A51 * new(bit key[64]){
-    if((sizeof(key)/sizeof(bit)) != 64 ){
-        return NULL;
+A51 * new(bit key[64], int debug_mode)
+{
+    A51 * stream = calloc(1, sizeof(A51));
+
+    for(int index = 0; index < 23; index ++){
+        if(index < 19){
+            stream->x[index] = key[index];
+        }
+        if(index < 22){
+            stream->y[index] = key[index + 19];
+        }
+        stream->z[index] = key[index + 41];
     } 
 
-    bit x_keyed[19], y_keyed[22], z_keyed[23];
-    for(u_int8_t index = 0; index < 22; index ++){
-        if(index < 18){
-            x_keyed[index] = key[index];
+    if(debug_mode){
+        printf("X-> "); 
+        for(int i = 0; i < 19; i++){
+            printf("%d", stream->x[i]); 
         }
-        if(index < 21){
-            y_keyed[index + 19] = y_keyed[index + 19];
+        printf(" <-\n");
+
+        printf("Y-> "); 
+        for(int i = 0; i < 19; i++){
+            printf("%d", stream->y[i]); 
         }
-        z_keyed[index + 41] = z_keyed[index + 41];
-    } 
-    return (A51*){x_keyed, y_keyed, z_keyed};
+        printf(" <-\n");
+        printf("Z-> "); 
+        for(int i = 0; i < 19; i++){
+            printf("%d", stream->z[i]); 
+        }
+        printf(" <-\n");
+    }
+    
+
+    return  stream;
 }
 
+int cmp_A51_arr_to_key_arr_debug(A51 * stream, bit key[64])
+{
+    for(int i = 0; i < 19; i++){
+        if(stream->x[i] != key[i]){
+            printf("err in x arr at stream->x[%d] = %d != %d\n", i, stream->y[i], key[i + 41]);
+            return 0;
+        }
+    }
+    for(int i = 0; i < 22; i++){
+        if(stream->y[i] != key[i + 19]){
+            printf("err in y arr at stream->y[%d] = %d != %d\n", i, stream->y[i], key[i + 41]);
+            return 0;
+        }
+    }
+    for(int i = 0; i < 23; i++){
+        if(stream->z[i] != key[i + 41]){
+            printf("err in z arr at stream->z[%d] (%d != %d)\n", i, stream->z[i], key[i + 41]);
+            return 0;
+        }
+    }
+    return 1;
+}
+
+
+
+bit * decimal_to_64_bit(int decimal)
+{
+
+    bit * testing = (bit*)calloc(64, sizeof(one));
+    long start_bit = 1;
+
+    for(int index = 63; index >= 0; index--){
+        if( (decimal / (start_bit << (index))) != 0 ){
+            //printf("decimal = %d, / [1 << %d] (%ld) = one\n", decimal, index, (start_bit << (index)));
+            testing[index] = one;
+            decimal -= start_bit << (index);
+        }
+        else{
+            testing[index] = zero;
+            //printf("zero\n");
+        }
+    }
+
+    return testing;
+}
+
+
+void dump_64_bit_array_big_endian(bit * array)
+{
+    for(int index = 63; index > 0; index--){
+        printf("%d, ", array[index]);
+    }
+    printf("%d\n", array[0]);
+}
+
+
+void dump_64_bit_array_little_endian(bit * array)
+{
+    for(int index = 0; index < 64; index++){
+        printf("%d, ", array[index]);
+    }
+    printf("%d\n", array[64]);
+}
+
+void dump_A51(A51 * stream)
+{
+    printf("\n");
+    for(int i = 0; i < 19; i++){
+        printf("%d", stream->x[i]);
+
+    }
+    for(int i = 0; i < 22; i++){
+        printf("%d", stream->y[i]);
+    }
+    for(int i = 0; i < 22; i++){
+        printf("%d", stream->z[i]);
+    }
+    printf("\n");
+}
 
 int main () {
     /*************************************************************************************************
@@ -53,7 +152,22 @@ int main () {
     *************************************************************************************************/
 
     int message = 80085;
-    
+
+    bit * message_bits = decimal_to_64_bit(message);
+
+    dump_64_bit_array_little_endian(message_bits);
+
+    A51 * cipher = new(message_bits, 1);
+
+
+    dump_A51(cipher);
+
+    if(!cmp_A51_arr_to_key_arr_debug(cipher, message_bits)){
+        printf("SOMTHING WENT REALLY FUCKING BAD\n");
+    }
+
+    free(message_bits);
+
     return 0;
 }
 
