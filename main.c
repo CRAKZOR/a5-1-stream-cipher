@@ -83,13 +83,11 @@ bit * decimal_to_64_bit(int decimal)
 
     for(int index = 63; index >= 0; index--){
         if( (decimal / (start_bit << (index))) != 0 ){
-            //printf("decimal = %d, / [1 << %d] (%ld) = one\n", decimal, index, (start_bit << (index)));
             testing[index] = one;
             decimal -= start_bit << (index);
         }
         else{
             testing[index] = zero;
-            //printf("zero\n");
         }
     }
 
