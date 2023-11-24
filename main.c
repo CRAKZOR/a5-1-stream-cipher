@@ -7,15 +7,18 @@ typedef enum bit {
 } bit;
 
 typedef struct A51 {
-    bit  x[19];
-    bit  y[22];
-    bit  z[23];
+    bit  *x;
+    bit  *y;
+    bit  *z;
 } A51;
 
 
 A51 * newA51(bit key[64], int debug_mode)
 {
     A51 * stream = calloc(1, sizeof(A51));
+    stream->x = calloc(19, sizeof(one));
+    stream->y = calloc(22, sizeof(one));
+    stream->z = calloc(23, sizeof(one));
 
     for(int index = 0; index < 23; index ++){
         if(index < 19){
@@ -35,12 +38,12 @@ A51 * newA51(bit key[64], int debug_mode)
         printf(" <-\n");
 
         printf("Y-> "); 
-        for(int i = 0; i < 19; i++){
+        for(int i = 0; i < 22; i++){
             printf("%d", stream->y[i]); 
         }
         printf(" <-\n");
         printf("Z-> "); 
-        for(int i = 0; i < 19; i++){
+        for(int i = 0; i < 23; i++){
             printf("%d", stream->z[i]); 
         }
         printf(" <-\n");
@@ -75,7 +78,7 @@ int cmp_A51_arr_to_key_arr_debug(A51 * stream, bit key[64])
 
 
 
-bit * decimal_to_64_bit(int decimal)
+bit * decimal_to_64_bit(long decimal)
 {
 
     bit * testing = (bit*)calloc(64, sizeof(one));
@@ -104,12 +107,12 @@ void dump_64_bit_array_big_endian(bit * array)
 }
 
 
-void dump_64_bit_array_little_endian(bit * array)
+void dump_bit_array_little_endian(bit * array, int size)
 {
-    for(int index = 0; index < 64; index++){
+    for(int index = 0; index < size - 1; index++){
         printf("%d, ", array[index]);
     }
-    printf("%d\n", array[64]);
+    printf("%d\n", array[size]);
 }
 
 void dump_A51(A51 * stream)
@@ -127,6 +130,35 @@ void dump_A51(A51 * stream)
     }
     printf("\n");
 }
+
+
+bit maj(bit x8, bit y10, bit z10)
+{
+    int one_count = 0;
+    int zero_count = 0;
+
+    x8 == one ? one_count++ : zero_count++; 
+    y10 == one ? one_count++ : zero_count++; 
+    z10 == one ? one_count++ : zero_count++; 
+
+    if(one_count > zero_count){
+        return one;
+    }
+    else{
+        return zero;
+    }
+}
+
+
+void shift_right_one(bit * arr, int size, int debug)
+{
+    for(int i = size - 1; i > 0; i--){
+        arr[i] = arr[i - 1];
+    }
+
+    debug == 1 ? dump_bit_array_little_endian(arr, size) : NULL;
+}
+
 
 int main () {
     /*************************************************************************************************
@@ -151,9 +183,12 @@ int main () {
 
     int message = 80085;
 
-    bit * message_bits = decimal_to_64_bit(message);
 
-    dump_64_bit_array_little_endian(message_bits);
+    long key = 999989797144909907;
+
+    bit * message_bits = decimal_to_64_bit(key);
+
+    dump_bit_array_little_endian(message_bits, 64);
 
     A51 * cipher = newA51(message_bits, 1);
 
@@ -164,6 +199,38 @@ int main () {
         printf("SOMTHING WENT REALLY FUCKING BAD\n");
     }
 
+    
+    for(int step = 0; step < 64; step++){
+        //printf("maj = %d\n", maj(cipher->x[8], cipher->y[10], cipher->z[10]));
+        
+        bit maj_bit = maj(cipher->x[8], cipher->y[10], cipher->z[10]);
+
+        if(maj_bit == cipher->x[8]){
+            bit bit_zero = cipher->x[13] ^ cipher->x[16] ^ cipher->x[17] & cipher->x[18];
+            shift_right_one(cipher->x, 19, 0);
+            cipher->x[0] = bit_zero;
+        }
+        if(maj_bit == cipher->y[10]){
+            bit bit_zero = cipher->y[20] ^ cipher->y[21];
+            shift_right_one(cipher->y, 22, 0);
+            cipher->y[0] = bit_zero;
+        }
+        if(maj_bit == cipher->z[10]){
+            //TODO step
+            bit bit_zero = cipher->z[7] ^ cipher->z[20] ^ cipher->z[21] ^ cipher->z[22];
+            shift_right_one(cipher->y, 23, 0);
+            cipher->z[0] = bit_zero;
+        }
+
+        dump_A51(cipher);
+    }
+    
+    //printf("================\n");
+    //shift_right_one(cipher->x, 19, 1);
+    //cipher->x[0] = zero;
+    //dump_A51(cipher);
+
+    free(cipher);
     free(message_bits);
 
     return 0;
