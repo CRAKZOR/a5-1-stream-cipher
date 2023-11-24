@@ -13,7 +13,7 @@ typedef struct A51 {
 } A51;
 
 
-A51 * new(bit key[64], int debug_mode)
+A51 * newA51(bit key[64], int debug_mode)
 {
     A51 * stream = calloc(1, sizeof(A51));
 
@@ -157,7 +157,7 @@ int main () {
 
     dump_64_bit_array_little_endian(message_bits);
 
-    A51 * cipher = new(message_bits, 1);
+    A51 * cipher = newA51(message_bits, 1);
 
 
     dump_A51(cipher);
