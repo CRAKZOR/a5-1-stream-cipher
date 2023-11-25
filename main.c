@@ -172,46 +172,49 @@ void shift_right_one(bit * arr, int size, int debug)
 }
 
 
-void A51_ALGORITHM(A51 ** cipher, bit* message)
+void A51_ALGORITHM(A51 ** cipher, bit* message, int debug)
 {
     for(int step = 0; step < 64; step++){
         bit maj_bit = maj((*cipher)->x[8], (*cipher)->y[10], (*cipher)->z[10]);
 
-        printf("maj_bit = %d, ", maj_bit);
+        if(debug){printf("maj_bit = %d, ", maj_bit);}
+
         if(maj_bit == (*cipher)->x[8]){
             bit bit_zero = (*cipher)->x[13] ^ (*cipher)->x[16] ^ (*cipher)->x[17] & (*cipher)->x[18];
-            printf("|x shifted x0 = %d|, ", bit_zero);
+            if(debug){printf("|x shifted x0 = %d|, ", bit_zero);}
             shift_right_one((*cipher)->x, 19, 0);
             (*cipher)->x[0] = bit_zero;
         }
         if(maj_bit == (*cipher)->y[10]){
             bit bit_zero = (*cipher)->y[20] ^ (*cipher)->y[21];
-            printf("|y shifted y0 = %d|, ", bit_zero);
+            if(debug){printf("|y shifted y0 = %d|, ", bit_zero);}
             shift_right_one((*cipher)->y, 22, 0);
             (*cipher)->y[0] = bit_zero;
         }
         if(maj_bit == (*cipher)->z[10]){
             bit bit_zero = (*cipher)->z[7] ^ (*cipher)->z[20] ^ (*cipher)->z[21] ^ (*cipher)->z[22];
-            printf("|z shifted z0 = %d|, ", bit_zero);
+            if(debug){printf("|z shifted z0 = %d|, ", bit_zero);}
             shift_right_one((*cipher)->z, 23, 0);
             (*cipher)->z[0] = bit_zero;
         }
 
         bit cypher_xor_bit = (*cipher)->x[18] ^ (*cipher)->y[21] ^ (*cipher)->z[22];
 
-        printf("\n");
-        dump_bit_array_little_endian((*cipher)->x, 19);
-        dump_bit_array_little_endian((*cipher)->y, 22);
-        dump_bit_array_little_endian((*cipher)->z, 23);
-        printf("%d ^ %d ^ %d = %d\n", 
-                (*cipher)->x[18],
-                (*cipher)->y[21],
-                (*cipher)->z[22],
-                cypher_xor_bit
-        );
+        if(debug){
+            printf("\n");
+            dump_bit_array_little_endian((*cipher)->x, 19);
+            dump_bit_array_little_endian((*cipher)->y, 22);
+            dump_bit_array_little_endian((*cipher)->z, 23);
+            printf("%d ^ %d ^ %d = %d\n", 
+                    (*cipher)->x[18],
+                    (*cipher)->y[21],
+                    (*cipher)->z[22],
+                    cypher_xor_bit
+            );
+            printf("\n");
+        }
 
         message[step] ^= cypher_xor_bit;
-        printf("\n");
     }
 
 }
@@ -242,39 +245,44 @@ int main () {
     long key = 999989797144909907;
 
     bit * message_bits = decimal_to_64_bit(message);
-    dump_bit_array_little_endian(message_bits, 64);
-    printf("bit_64_to_decimal = %ld\n", bit_64_to_decimal(message_bits));
+    //dump_bit_array_little_endian(message_bits, 64);
+    //printf("bit_64_to_decimal = %ld\n", bit_64_to_decimal(message_bits));
 
 
     bit * key_bits = decimal_to_64_bit(key);
-
+    printf("key decimal : %ld\n", key);
+    printf("key bits : ");
     dump_bit_array_little_endian(key_bits, 64);
 
-    A51 * cipher = newA51(key_bits, 1);
+
+    A51 * cipher = newA51(key_bits, 0);
 
 
-    dump_A51(cipher);
+    //dump_A51(cipher);
 
     if(!cmp_A51_arr_to_key_arr_debug(cipher, key_bits)){
         printf("SOMTHING WENT REALLY FUCKING BAD\n");
     }
-
-    A51_ALGORITHM(&cipher, message_bits);
     
+    printf("\nmessage decimal : %ld\nMessage plaint bits: ", message);
+    dump_bit_array_little_endian(message_bits, 64);
+    
+    A51_ALGORITHM(&cipher, message_bits, 0);
 
 
+    printf("\nMessage ciphered bits: ");
+    dump_bit_array_little_endian(message_bits, 64);
+
+
+    //Receiver de-ciphers
     bit * key_bits_2 = decimal_to_64_bit(key);
-    dump_bit_array_little_endian(key_bits_2, 64);
     A51 * cipher_2 = newA51(key_bits_2, 0);
-    A51_ALGORITHM(&cipher_2, message_bits);
+    A51_ALGORITHM(&cipher_2, message_bits, 0);
     
-
-
-    printf("bit_64_to_decimal = %ld\n", bit_64_to_decimal(message_bits));
-    printf("\n");
-    dump_bit_array_little_endian(cipher->x, 19);
-    dump_bit_array_little_endian(cipher->y, 22);
-    dump_bit_array_little_endian(cipher->z, 23);
+     
+    printf("\nMessage de-ciphered bits: ");
+    dump_bit_array_little_endian(message_bits, 64);
+    printf("Message de-ciphered to deicmal: %ld\n", bit_64_to_decimal(message_bits));
 
     free(cipher);
     free(key_bits);
