@@ -42,10 +42,22 @@
 #define REG_2_CB 10
 #define REG_3_CB 10
 
+// tapping bit size
+#define REG_1_TB_SIZE 4
+#define REG_2_TB_SIZE 2
+#define REG_3_TB_SIZE 4
+
+// tapping bits
+const int REG_1_TB[REG_1_TB_SIZE] = { 18, 17, 16, 13 };
+const int REG_2_TB[REG_2_TB_SIZE] = { 21, 20 };
+const int REG_3_TB[REG_3_TB_SIZE] = { 22, 21, 20, 7 };
+
+
 typedef enum bit {
     zero,
     one
 } bit;
+
 
 typedef struct a51 {
     bit *reg_1;
@@ -57,8 +69,8 @@ bit maj (bit i, bit j, bit k) {
     return (i+j+k) >= 2;
 }
 
-bit leftShift ( bit **reg_cpy, int amt, int size ) {
-    // return: the carry bit
+bit leftShift ( bit **reg_cpy, int amt, int size, const int tb[], const int tb_size ) {
+    // returns: the carry/pushed off bit
     bit *reg  = *reg_cpy;
     bit carry = reg[0];
 
@@ -66,7 +78,19 @@ bit leftShift ( bit **reg_cpy, int amt, int size ) {
         for (int i=0; i<size-1; i++) {
             reg[i]=reg[i+1]; 
         }
-        reg[size-1]=0;
+        
+        // XOR corresp tapping bits to determine new LSB 
+        bit new_lsb = 0;
+        for( int i=0; i<tb_size; i++) {
+            int tap_cur_idx = tb[i];
+            if ((i+1) < tb_size) {
+                int tap_nxt_idx = tb[i+1];
+                new_lsb = reg[tap_cur_idx] ^ reg[tap_nxt_idx]; 
+            } else {
+                new_lsb = new_lsb ^ reg[tap_cur_idx];
+            }
+        } 
+        reg[size-1] = new_lsb;
     }
 
     return carry;
@@ -113,19 +137,19 @@ void loadRegisters ( bit *data, int data_size, a51 *alg_cpy) {
         // XOR LSB of reg_1, then clock
         // bitwise XOR (^)
         reg_1[REG_1_SIZE-1] = reg_1[REG_1_SIZE-1] ^ data[idx];   
-        leftShift(&reg_1, 1, REG_1_SIZE);
+        leftShift(&reg_1, 1, REG_1_SIZE, REG_1_TB, REG_1_TB_SIZE);
         idx++;
         // if (idx == data_size-1) break;
 
         // XOR LSB of reg_2, then clock
         reg_2[REG_2_SIZE-1] = reg_2[REG_2_SIZE-1] ^ data[idx];   
-        leftShift(&reg_2, 1, REG_2_SIZE);
+        leftShift(&reg_2, 1, REG_2_SIZE, REG_2_TB, REG_2_TB_SIZE);
         idx++;
         // if (idx == data_size-1) break;
 
         // XOR LSB of reg_3, then clock
         reg_3[REG_3_SIZE-1] = reg_3[REG_3_SIZE-1] ^ data[idx];   
-        leftShift(&reg_3, 1, REG_3_SIZE);
+        leftShift(&reg_3, 1, REG_3_SIZE, REG_2_TB, REG_2_TB_SIZE);
         idx++;
     } 
 }
@@ -148,9 +172,9 @@ bit run ( a51 *alg_cpy ) {
                         reg_3[ REG_3_CB ]
                     );
 
-    if ( reg_1[ REG_1_CB ] ==  maj_bit ) leftShift(&reg_1, 1, REG_1_SIZE);
-    if ( reg_2[ REG_2_CB ] ==  maj_bit ) leftShift(&reg_2, 1, REG_2_SIZE);
-    if ( reg_3[ REG_3_CB ] ==  maj_bit ) leftShift(&reg_3, 1, REG_3_SIZE);
+    if ( reg_1[ REG_1_CB ] ==  maj_bit ) leftShift(&reg_1, 1, REG_1_SIZE, REG_1_TB, REG_1_TB_SIZE);
+    if ( reg_2[ REG_2_CB ] ==  maj_bit ) leftShift(&reg_2, 1, REG_2_SIZE, REG_2_TB, REG_2_TB_SIZE);
+    if ( reg_3[ REG_3_CB ] ==  maj_bit ) leftShift(&reg_3, 1, REG_3_SIZE, REG_3_TB, REG_3_TB_SIZE);
 
 
     return reg_1[0] ^ reg_2[1] ^ reg_3[2];
