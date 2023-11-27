@@ -132,25 +132,20 @@ void loadRegisters ( bit *data, int data_size, a51 *alg_cpy) {
     bit* reg_2 = alg.reg_2;
     bit* reg_3 = alg.reg_3;
     
-    int idx = 0;
-    while (idx < data_size-1) {
+    // input key to each register in parallel
+    for (int i=0; i<data_size-1; i++) {
         // XOR LSB of reg_1, then clock
         // bitwise XOR (^)
-        reg_1[REG_1_SIZE-1] = reg_1[REG_1_SIZE-1] ^ data[idx];   
         leftShift(&reg_1, 1, REG_1_SIZE, REG_1_TB, REG_1_TB_SIZE);
-        idx++;
-        // if (idx == data_size-1) break;
+        reg_1[REG_1_SIZE-1] = reg_1[REG_1_SIZE-1] ^ data[i];
 
         // XOR LSB of reg_2, then clock
-        reg_2[REG_2_SIZE-1] = reg_2[REG_2_SIZE-1] ^ data[idx];   
         leftShift(&reg_2, 1, REG_2_SIZE, REG_2_TB, REG_2_TB_SIZE);
-        idx++;
-        // if (idx == data_size-1) break;
+        reg_2[REG_2_SIZE-1] = reg_2[REG_2_SIZE-1] ^ data[i];
 
         // XOR LSB of reg_3, then clock
-        reg_3[REG_3_SIZE-1] = reg_3[REG_3_SIZE-1] ^ data[idx];   
         leftShift(&reg_3, 1, REG_3_SIZE, REG_2_TB, REG_2_TB_SIZE);
-        idx++;
+        reg_3[REG_3_SIZE-1] = reg_3[REG_3_SIZE-1] ^ data[i];
     } 
 }
 
