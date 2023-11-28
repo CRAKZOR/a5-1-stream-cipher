@@ -37,10 +37,11 @@
 #define REG_2_SIZE 22
 #define REG_3_SIZE 23
 
+// Note MSB is 0 idx
 // clocking bit
-#define REG_1_CB 8
-#define REG_2_CB 10
-#define REG_3_CB 10
+#define REG_1_CB 10
+#define REG_2_CB 11
+#define REG_3_CB 12
 
 // tapping bit size
 #define REG_1_TB_SIZE 4
@@ -48,9 +49,9 @@
 #define REG_3_TB_SIZE 4
 
 // tapping bits
-const int REG_1_TB[REG_1_TB_SIZE] = { 18, 17, 16, 13 };
-const int REG_2_TB[REG_2_TB_SIZE] = { 21, 20 };
-const int REG_3_TB[REG_3_TB_SIZE] = { 22, 21, 20, 7 };
+const int REG_1_TB[REG_1_TB_SIZE] = { 0, 1, 2, 5 };
+const int REG_2_TB[REG_2_TB_SIZE] = { 0, 1 };
+const int REG_3_TB[REG_3_TB_SIZE] = { 0, 1, 2, 15 };
 
 
 typedef enum bit {
@@ -69,27 +70,27 @@ bit maj (bit i, bit j, bit k) {
     return (i+j+k) >= 2;
 }
 
+void printRegisters( a51 alg );
+
 bit leftShift ( bit **reg_cpy, int amt, int size, const int tb[], const int tb_size ) {
     // returns: the carry/pushed off bit
     bit *reg  = *reg_cpy;
     bit carry = reg[0];
 
     for (int count=0; count<amt; count++) {
+        
+        // XOR corresp tapping bits to determine new LSB 
+        
+        bit new_lsb = reg[tb[0]];
+        for( int i=1; i<tb_size; i++) {
+            int tap_idx = tb[i];
+            new_lsb ^= reg[tap_idx];
+        } 
+
         for (int i=0; i<size-1; i++) {
             reg[i]=reg[i+1]; 
         }
-        
-        // XOR corresp tapping bits to determine new LSB 
-        bit new_lsb = 0;
-        for( int i=0; i<tb_size; i++) {
-            int tap_cur_idx = tb[i];
-            if ((i+1) < tb_size) {
-                int tap_nxt_idx = tb[i+1];
-                new_lsb = reg[tap_cur_idx] ^ reg[tap_nxt_idx]; 
-            } else {
-                new_lsb = new_lsb ^ reg[tap_cur_idx];
-            }
-        } 
+
         reg[size-1] = new_lsb;
     }
 
@@ -123,29 +124,28 @@ void printBits( bit *bits, const char* name, int size ) {
     printf("];\n");
 }
 
-void loadRegisters ( bit *data, int data_size, a51 *alg_cpy) {
-    // initialization
-    // we dont care that key is a temp pointer.
-    // deref _copy to update actual addresses
-    a51 alg = *alg_cpy;
+void loadRegistersStatic ( bit data[], int data_size, a51 *alg_cpy) {
+    a51 alg    = *alg_cpy;
     bit* reg_1 = alg.reg_1;
     bit* reg_2 = alg.reg_2;
     bit* reg_3 = alg.reg_3;
     
-    // input key to each register in parallel
-    for (int i=0; i<data_size-1; i++) {
-        // XOR LSB of reg_1, then clock
+    // input key to each register
+    for (int i=0; i<data_size; i++) {
         // bitwise XOR (^)
         leftShift(&reg_1, 1, REG_1_SIZE, REG_1_TB, REG_1_TB_SIZE);
-        reg_1[REG_1_SIZE-1] = reg_1[REG_1_SIZE-1] ^ data[i];
-
-        // XOR LSB of reg_2, then clock
         leftShift(&reg_2, 1, REG_2_SIZE, REG_2_TB, REG_2_TB_SIZE);
-        reg_2[REG_2_SIZE-1] = reg_2[REG_2_SIZE-1] ^ data[i];
+        leftShift(&reg_3, 1, REG_3_SIZE, REG_3_TB, REG_3_TB_SIZE);
 
-        // XOR LSB of reg_3, then clock
-        leftShift(&reg_3, 1, REG_3_SIZE, REG_2_TB, REG_2_TB_SIZE);
-        reg_3[REG_3_SIZE-1] = reg_3[REG_3_SIZE-1] ^ data[i];
+        // the LSB is already the result of XORing the tapping bits
+        reg_1[REG_1_SIZE-1] ^= data[i];
+        reg_2[REG_2_SIZE-1] ^= data[i];
+        reg_3[REG_3_SIZE-1] ^= data[i];
+
+        if ( (i<4) | !((i+1)%4) ) {
+            printf("\nRUN #%d \n", i+1);
+            printRegisters(alg); 
+        }
     } 
 }
 
@@ -172,7 +172,8 @@ bit run ( a51 *alg_cpy ) {
     if ( reg_3[ REG_3_CB ] ==  maj_bit ) leftShift(&reg_3, 1, REG_3_SIZE, REG_3_TB, REG_3_TB_SIZE);
 
 
-    return reg_1[0] ^ reg_2[1] ^ reg_3[2];
+    // XOR the MSB of all 3 registers, outputs KS bit
+    return reg_1[0] ^ reg_2[0] ^ reg_3[0];
 }
 
 bit *encrypt ( bit *pt, bit *ks, int size ) {
@@ -189,6 +190,7 @@ bit *encrypt ( bit *pt, bit *ks, int size ) {
     }
     return ct;
 }
+
 bit *decrypt ( bit *ct, bit *ks, int size ) {
     // for the length of ciphertext, xor with key_stream.
     // output : message stream
@@ -227,9 +229,21 @@ int main () {
     };
 
 
-    bit *key        = genKey(KEY_SIZE);        // 64-bit key
-    bit *frame      = genKey(FRAME_SIZE);      // 22-bit frame num
+    // bit *key        = genKey(KEY_SIZE);        // 64-bit key
+    // bit *frame      = genKey(FRAME_SIZE);      // 22-bit frame num
 
+    bit key[KEY_SIZE]     = { 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0,
+  0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0,
+  0, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0,
+  0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1,
+  1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 0,
+  1, 1, 1, 0 }; 
+    bit frame[FRAME_SIZE] = {
+  1, 1, 0, 0, 1, 0, 1,
+  1, 0, 1, 0, 0, 0, 1,
+  1, 1, 0, 0, 0, 1, 0,
+  0
+    };
 
     printBits(key,   "64-bit key (private)",  KEY_SIZE);
     printBits(frame, "22-bit frame (public)", FRAME_SIZE);
@@ -237,18 +251,21 @@ int main () {
     printRegisters(alg);
     
     printf("\n__ 64-BIT KEY LOADED IN REGISTERS STATE __\n");
-    loadRegisters(key, KEY_SIZE, &alg);
+    loadRegistersStatic(key, KEY_SIZE, &alg);
     printRegisters(alg);
 
     printf("\n__ 22-BIT FRAME LOADED IN REGISTERS STATE __\n");
-    loadRegisters(frame, FRAME_SIZE, &alg);
+    loadRegistersStatic(frame, FRAME_SIZE, &alg);
     printRegisters(alg);
 
     printf("\n__ POST 100 RUN CYCLE (DIFFUSION STEP) __\n");
     for (int i=0; i<100; i++) {
         run(&alg);
+        if ( (i<5) | !((i+1)%5) ) {
+            printf("\nRUN #%d \n", i+1);
+            printRegisters(alg); 
+        }
     }
-    loadRegisters(frame, FRAME_SIZE, &alg);
     printRegisters(alg);
 
     printf("\n__ READY TO ENCRYPT __\n");
@@ -284,8 +301,8 @@ int main () {
     free(alg.reg_1);
     free(alg.reg_2);
     free(alg.reg_3);
-    free(key);
-    free(frame);
+    // free(key);
+    //free(frame);
     free(key_stream);
     free(ciphertext);
     free(message);
