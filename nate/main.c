@@ -72,12 +72,12 @@ bit maj (bit i, bit j, bit k) {
 
 void printRegisters( a51 alg );
 
-bit leftShift ( bit **reg_cpy, int amt, int size, const int tb[], const int tb_size ) {
+bit leftShift ( bit **reg_cpy, int shift_amt, int size, const int tb[], const int tb_size ) {
     // returns: the carry/pushed off bit
     bit *reg  = *reg_cpy;
     bit carry = reg[0];
 
-    for (int count=0; count<amt; count++) {
+    for (int count=0; count<shift_amt; count++) {
         
         // XOR corresp tapping bits to determine new LSB 
         
@@ -124,7 +124,7 @@ void printBits( bit *bits, const char* name, int size ) {
     printf("];\n");
 }
 
-void loadRegistersStatic ( bit data[], int data_size, a51 *alg_cpy) {
+void loadRegisters ( bit data[], int data_size, a51 *alg_cpy) {
     a51 alg    = *alg_cpy;
     bit* reg_1 = alg.reg_1;
     bit* reg_2 = alg.reg_2;
@@ -142,10 +142,10 @@ void loadRegistersStatic ( bit data[], int data_size, a51 *alg_cpy) {
         reg_2[REG_2_SIZE-1] ^= data[i];
         reg_3[REG_3_SIZE-1] ^= data[i];
 
-        if ( (i<4) | !((i+1)%4) ) {
-            printf("\nRUN #%d \n", i+1);
-            printRegisters(alg); 
-        }
+        // if ( (i<4) | !((i+1)%4) ) {
+        //     printf("\nRUN #%d \n", i+1);
+        //     printRegisters(alg); 
+        // }
     } 
 }
 
@@ -229,21 +229,22 @@ int main () {
     };
 
 
-    // bit *key        = genKey(KEY_SIZE);        // 64-bit key
-    // bit *frame      = genKey(FRAME_SIZE);      // 22-bit frame num
+    bit *key        = genKey(KEY_SIZE);        // 64-bit key
+    bit *frame      = genKey(FRAME_SIZE);      // 22-bit frame num
 
-    bit key[KEY_SIZE]     = { 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0,
-  0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0,
-  0, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0,
-  0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1,
-  1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 0,
-  1, 1, 1, 0 }; 
-    bit frame[FRAME_SIZE] = {
-  1, 1, 0, 0, 1, 0, 1,
-  1, 0, 1, 0, 0, 0, 1,
-  1, 1, 0, 0, 0, 1, 0,
-  0
-    };
+    //    bit key[KEY_SIZE]     = { 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0,
+    //        0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0,
+    //        0, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0,
+    //        0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1,
+    //        1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 0,
+    //        1, 1, 1, 0
+    //    }; 
+    //    bit frame[FRAME_SIZE] = {
+    //        1, 1, 0, 0, 1, 0, 1,
+    //        1, 0, 1, 0, 0, 0, 1,
+    //        1, 1, 0, 0, 0, 1, 0,
+    //        0
+    //    };
 
     printBits(key,   "64-bit key (private)",  KEY_SIZE);
     printBits(frame, "22-bit frame (public)", FRAME_SIZE);
@@ -251,20 +252,20 @@ int main () {
     printRegisters(alg);
     
     printf("\n__ 64-BIT KEY LOADED IN REGISTERS STATE __\n");
-    loadRegistersStatic(key, KEY_SIZE, &alg);
+    loadRegisters(key, KEY_SIZE, &alg);
     printRegisters(alg);
 
     printf("\n__ 22-BIT FRAME LOADED IN REGISTERS STATE __\n");
-    loadRegistersStatic(frame, FRAME_SIZE, &alg);
+    loadRegisters(frame, FRAME_SIZE, &alg);
     printRegisters(alg);
 
-    printf("\n__ POST 100 RUN CYCLE (DIFFUSION STEP) __\n");
+    printf("\n__ POST 100 RUN CYCLE __\n");
     for (int i=0; i<100; i++) {
         run(&alg);
-        if ( (i<5) | !((i+1)%5) ) {
-            printf("\nRUN #%d \n", i+1);
-            printRegisters(alg); 
-        }
+        // if ( (i<5) | !((i+1)%5) ) {
+        //     printf("\nRUN #%d \n", i+1);
+        //     printRegisters(alg); 
+        // }
     }
     printRegisters(alg);
 
@@ -287,6 +288,7 @@ int main () {
     }
 
     printf("\n");
+    printBits(key_stream, "KEYSTREAM", plaintext_size);
     printBits(plaintext, "INPUT - PLAINTEXT", plaintext_size);
 
     printf("\n");
